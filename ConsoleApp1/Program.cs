@@ -19,6 +19,7 @@ class Program
 
         var encryptedString = AesOperation.EncryptString(key, str);
         Console.WriteLine($"Encrypted String = {encryptedString}");
+        Console.WriteLine($"Encrypted Date Time = {DateTime.Now.ToString("o")}");
 
         var decryptedString = AesOperation.DecryptString(key, encryptedString, out DateTime encryptionTime);
         Console.WriteLine($"Decrypted String = {decryptedString}");
