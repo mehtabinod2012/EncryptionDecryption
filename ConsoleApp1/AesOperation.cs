@@ -1,33 +1,44 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace ConsoleApp1
 {
-    public  class AesOperation
+    public class AesOperation
     {
+        public static string GenerateKey()
+        {
+            using (Aes aes = Aes.Create())
+            {
+                aes.GenerateKey();
+                return Convert.ToBase64String(aes.Key);
+            }
+        }
+
         public static string EncryptString(string key, string plainText)
         {
             byte[] iv = new byte[16];
             byte[] array;
 
+            // Embed DateTime
+            string timestamp = DateTime.Now.ToString("o"); // ISO 8601 format
+            string enrichedText = $"{timestamp}|{plainText}";
+
             using (Aes aes = Aes.Create())
             {
-                aes.Key = Encoding.UTF8.GetBytes(key);
+                aes.Key = Encoding.UTF8.GetBytes(PadKey(key));
                 aes.IV = iv;
 
                 ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
 
                 using (MemoryStream memoryStream = new MemoryStream())
                 {
-                    using (CryptoStream cryptoStream = new CryptoStream((Stream)memoryStream, encryptor, CryptoStreamMode.Write))
+                    using (CryptoStream cryptoStream = new CryptoStream(memoryStream, encryptor, CryptoStreamMode.Write))
                     {
-                        using (StreamWriter streamWriter = new StreamWriter((Stream)cryptoStream))
+                        using (StreamWriter streamWriter = new StreamWriter(cryptoStream))
                         {
-                            streamWriter.Write(plainText);
+                            streamWriter.Write(enrichedText);
                         }
 
                         array = memoryStream.ToArray();
@@ -38,31 +49,119 @@ namespace ConsoleApp1
             return Convert.ToBase64String(array);
         }
 
-        public static string DecryptString(string key, string cipherText)
+        public static string DecryptString(string key, string cipherText, out DateTime timestamp)
         {
             byte[] iv = new byte[16];
             byte[] buffer = Convert.FromBase64String(cipherText);
 
             using (Aes aes = Aes.Create())
             {
-                aes.Key = Encoding.UTF8.GetBytes(key);
+                aes.Key = Encoding.UTF8.GetBytes(PadKey(key));
                 aes.IV = iv;
+
                 ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
 
                 using (MemoryStream memoryStream = new MemoryStream(buffer))
                 {
-                    using (CryptoStream cryptoStream = new CryptoStream((Stream)memoryStream, decryptor, CryptoStreamMode.Read))
+                    using (CryptoStream cryptoStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
                     {
-                        using (StreamReader streamReader = new StreamReader((Stream)cryptoStream))
+                        using (StreamReader streamReader = new StreamReader(cryptoStream))
                         {
-                            return streamReader.ReadToEnd();
+                            string decryptedText = streamReader.ReadToEnd();
+
+                            // Extract timestamp and actual message
+                            var parts = decryptedText.Split('|');
+                            if (parts.Length >= 2 && DateTime.TryParse(parts[0], null, System.Globalization.DateTimeStyles.RoundtripKind, out timestamp))
+                            {
+                                return parts[1];
+                            }
+                            else
+                            {
+                                timestamp = DateTime.MinValue;
+                                return decryptedText; // Return full string in case of error
+                            }
                         }
                     }
                 }
             }
         }
+
+        private static string PadKey(string key)
+        {
+            const int keySize = 32; // AES-256
+            if (key.Length > keySize)
+                return key.Substring(0, keySize);
+            return key.PadRight(keySize, '0');
+        }
     }
 }
+
+
+//using System;
+//using System.Collections.Generic;
+//using System.Linq;
+//using System.Security.Cryptography;
+//using System.Text;
+//using System.Threading.Tasks;
+
+//namespace ConsoleApp1
+//{
+//    public  class AesOperation
+//    {
+//        public static string EncryptString(string key, string plainText)
+//        {
+//            byte[] iv = new byte[16];
+//            byte[] array;
+
+//            using (Aes aes = Aes.Create())
+//            {
+//                aes.Key = Encoding.UTF8.GetBytes(key);
+//                aes.IV = iv;
+
+//                ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+
+//                using (MemoryStream memoryStream = new MemoryStream())
+//                {
+//                    using (CryptoStream cryptoStream = new CryptoStream((Stream)memoryStream, encryptor, CryptoStreamMode.Write))
+//                    {
+//                        using (StreamWriter streamWriter = new StreamWriter((Stream)cryptoStream))
+//                        {
+//                            streamWriter.Write(plainText);
+//                        }
+
+//                        array = memoryStream.ToArray();
+//                    }
+//                }
+//            }
+
+//            return Convert.ToBase64String(array);
+//        }
+
+//        public static string DecryptString(string key, string cipherText)
+//        {
+//            byte[] iv = new byte[16];
+//            byte[] buffer = Convert.FromBase64String(cipherText);
+
+//            using (Aes aes = Aes.Create())
+//            {
+//                aes.Key = Encoding.UTF8.GetBytes(key);
+//                aes.IV = iv;
+//                ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+
+//                using (MemoryStream memoryStream = new MemoryStream(buffer))
+//                {
+//                    using (CryptoStream cryptoStream = new CryptoStream((Stream)memoryStream, decryptor, CryptoStreamMode.Read))
+//                    {
+//                        using (StreamReader streamReader = new StreamReader((Stream)cryptoStream))
+//                        {
+//                            return streamReader.ReadToEnd();
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}
 
 
 /*
